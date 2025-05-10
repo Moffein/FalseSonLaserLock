@@ -12,7 +12,7 @@ using System.Linq;
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
 namespace FalseSonLaserLock
 {
-    [BepInPlugin("com.Moffein.FalseSonLaserLock", "FalseSonLaserLock", "1.0.0")]
+    [BepInPlugin("com.Moffein.FalseSonLaserLock", "FalseSonLaserLock", "1.0.1")]
     public class FalseSonLaserLockPlugin : BaseUnityPlugin
     {
         private static int[] activeLasers;
@@ -106,13 +106,17 @@ namespace FalseSonLaserLock
         private void LunarGazeLaserFire_OnExit(On.EntityStates.PrimeMeridian.LunarGazeLaserFire.orig_OnExit orig, EntityStates.PrimeMeridian.LunarGazeLaserFire self)
         {
             if (meridianPhase3Count > 0) LightningStormController.SetStormActive(true);
+            int index = (int)self.GetTeam();
             orig(self);
+            activeLasers[index]--;
+            if (activeLasers[index] <= 0) activeLasers[index] = 0;
         }
 
         private void LunarGazeLaserFire_OnEnter(On.EntityStates.PrimeMeridian.LunarGazeLaserFire.orig_OnEnter orig, EntityStates.PrimeMeridian.LunarGazeLaserFire self)
         {
             orig(self);
             if (meridianPhase3Count > 0) LightningStormController.SetStormActive(false);
+            activeLasers[(int)self.GetTeam()]++;
         }
 
         private void Stage_onStageStartGlobal(Stage obj)
