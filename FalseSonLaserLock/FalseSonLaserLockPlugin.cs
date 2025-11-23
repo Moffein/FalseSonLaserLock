@@ -12,10 +12,10 @@ using System.Linq;
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
 namespace FalseSonLaserLock
 {
-    [BepInPlugin("com.Moffein.FalseSonLaserLock", "FalseSonLaserLock", "1.0.1")]
+    [BepInPlugin("com.Moffein.FalseSonLaserLock", "FalseSonLaserLock", "1.0.2")]
     public class FalseSonLaserLockPlugin : BaseUnityPlugin
     {
-        private static int[] activeLasers;
+        private static int activeLasers = 0;
 
         private static int meridianPhase3Count = 0;
 
@@ -24,6 +24,13 @@ namespace FalseSonLaserLock
             RoR2.Stage.onStageStartGlobal += Stage_onStageStartGlobal;
             On.EntityStates.PrimeMeridian.LunarGazeLaserFire.OnEnter += LunarGazeLaserFire_OnEnter;
             On.EntityStates.PrimeMeridian.LunarGazeLaserFire.OnExit += LunarGazeLaserFire_OnExit;
+
+            On.EntityStates.PrimeMeridian.LunarGazeLaserCharge.OnEnter += LunarGazeLaserCharge_OnEnter;
+            On.EntityStates.PrimeMeridian.LunarGazeLaserCharge.OnExit += LunarGazeLaserCharge_OnExit;
+
+            On.EntityStates.PrimeMeridian.LunarGazeLaserEnd.OnEnter += LunarGazeLaserEnd_OnEnter;
+            On.EntityStates.PrimeMeridian.LunarGazeLaserEnd.OnExit += LunarGazeLaserEnd_OnExit;
+
             On.EntityStates.MeridianEvent.Phase3.OnEnter += Phase3_OnEnter;
             On.EntityStates.MeridianEvent.Phase3.OnExit += Phase3_OnExit;
 
@@ -66,6 +73,11 @@ namespace FalseSonLaserLock
                         self.skillLocator.special.rechargeStopwatch = self.skillLocator.special.finalRechargeInterval - 12f;
                     }
                 }
+
+                if (self.characterBody)
+                {
+                    self.characterBody.AddTimedBuffAuthority(RoR2Content.Buffs.Slow50.buffIndex, 12f);
+                }
             }
         }
 
@@ -81,9 +93,9 @@ namespace FalseSonLaserLock
             meridianPhase3Count++;
         }
 
-        public static bool IsLaserActive(TeamIndex teamIndex)
+        public static bool IsLaserActive()
         {
-            return activeLasers[(int)teamIndex] > 0;
+            return activeLasers > 0;
         }
 
         private void FissureSlam_FixedUpdate(MonoMod.Cil.ILContext il)
@@ -94,7 +106,7 @@ namespace FalseSonLaserLock
                 c.Emit(OpCodes.Ldarg_0);
                 c.EmitDelegate<Func<bool, EntityStates.FalseSonBoss.FissureSlam, bool>>((enableColumns, self) =>
                 {
-                    return enableColumns && !IsLaserActive(self.GetTeam());
+                    return enableColumns && !IsLaserActive();
                 });
             }
             else
@@ -106,27 +118,49 @@ namespace FalseSonLaserLock
         private void LunarGazeLaserFire_OnExit(On.EntityStates.PrimeMeridian.LunarGazeLaserFire.orig_OnExit orig, EntityStates.PrimeMeridian.LunarGazeLaserFire self)
         {
             if (meridianPhase3Count > 0) LightningStormController.SetStormActive(true);
-            int index = (int)self.GetTeam();
             orig(self);
-            activeLasers[index]--;
-            if (activeLasers[index] <= 0) activeLasers[index] = 0;
+            activeLasers = Mathf.Max(0, activeLasers - 1);
         }
 
         private void LunarGazeLaserFire_OnEnter(On.EntityStates.PrimeMeridian.LunarGazeLaserFire.orig_OnEnter orig, EntityStates.PrimeMeridian.LunarGazeLaserFire self)
         {
             orig(self);
             if (meridianPhase3Count > 0) LightningStormController.SetStormActive(false);
-            activeLasers[(int)self.GetTeam()]++;
+            activeLasers++;
+        }
+
+        private void LunarGazeLaserEnd_OnExit(On.EntityStates.PrimeMeridian.LunarGazeLaserEnd.orig_OnExit orig, EntityStates.PrimeMeridian.LunarGazeLaserEnd self)
+        {
+            if (meridianPhase3Count > 0) LightningStormController.SetStormActive(true);
+            orig(self);
+            activeLasers = Mathf.Max(0, activeLasers - 1);
+        }
+
+        private void LunarGazeLaserEnd_OnEnter(On.EntityStates.PrimeMeridian.LunarGazeLaserEnd.orig_OnEnter orig, EntityStates.PrimeMeridian.LunarGazeLaserEnd self)
+        {
+            orig(self);
+            if (meridianPhase3Count > 0) LightningStormController.SetStormActive(false);
+            activeLasers++;
+        }
+
+        private void LunarGazeLaserCharge_OnExit(On.EntityStates.PrimeMeridian.LunarGazeLaserCharge.orig_OnExit orig, EntityStates.PrimeMeridian.LunarGazeLaserCharge self)
+        {
+            if (meridianPhase3Count > 0) LightningStormController.SetStormActive(true);
+            orig(self);
+            activeLasers = Mathf.Max(0, activeLasers - 1);
+        }
+
+        private void LunarGazeLaserCharge_OnEnter(On.EntityStates.PrimeMeridian.LunarGazeLaserCharge.orig_OnEnter orig, EntityStates.PrimeMeridian.LunarGazeLaserCharge self)
+        {
+            orig(self);
+            if (meridianPhase3Count > 0) LightningStormController.SetStormActive(false);
+            activeLasers++;
         }
 
         private void Stage_onStageStartGlobal(Stage obj)
         {
             meridianPhase3Count = 0;
-            activeLasers = new int[(int)TeamIndex.Count];
-            for (int i = 0; i < activeLasers.Length; i++)
-            {
-                activeLasers[i] = 0;
-            }
+            activeLasers = 0;
         }
     }
 }
